@@ -1,0 +1,44 @@
+{
+  "name": "restro-app-server",
+  "version": "0.1.0",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "set DOTENV_CONFIG_PATH=..\\\\.env&& ts-node-dev --respawn --transpile-only src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "db:schema:apply": "set DOTENV_CONFIG_PATH=..\\\\.env&& node -r dotenv/config -r ts-node/register/transpile-only src/scripts/applySchemaSql.ts",
+    "db:mysql:username": "set DOTENV_CONFIG_PATH=..\\\\.env&& node -r dotenv/config -r ts-node/register/transpile-only src/scripts/mysqlAddUsername.ts",
+    "db:mysql:tables:assignedWaiter": "set DOTENV_CONFIG_PATH=..\\\\.env&& node -r dotenv/config -r ts-node/register/transpile-only src/scripts/mysqlAddAssignedWaiterToTables.ts",
+    "seed:sql": "set DOTENV_CONFIG_PATH=..\\\\.env&& node -r dotenv/config -r ts-node/register/transpile-only src/scripts/seedSql.ts",
+    "lint": "eslint \"src/**/*.{ts,tsx}\""
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.0",
+    "express": "^4.18.2",
+    "helmet": "^7.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "socket.io": "^4.7.2",
+    "zod": "^3.22.2",
+    "uuid": "^9.0.1",
+    "knex": "^3.1.0",
+    "pg": "^8.11.3",
+    "mysql2": "^3.8.0",
+    "mssql": "^10.0.1",
+    "mongodb": "^6.3.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.2",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/morgan": "^1.9.5",
+    "@types/node": "^20.10.0",
+    "eslint": "^8.56.0",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.5.0"
+  }
+}

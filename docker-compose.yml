@@ -1,0 +1,29 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: restro_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-restaurant}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+      POSTGRES_DB: ${DB_NAME:-restaurant_db}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - restro_pg_data:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: restro_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@restro.local
+      PGADMIN_DEFAULT_PASSWORD: Admin@123
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+
+volumes:
+  restro_pg_data:
+

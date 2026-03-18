@@ -1,0 +1,122 @@
+-- MySQL schema for Restro App (MySQL 8+ recommended)
+
+CREATE TABLE users (
+  id CHAR(36) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  username VARCHAR(64) NOT NULL UNIQUE,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  role ENUM('WAITER', 'CHEF', 'MANAGER') NOT NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE tables (
+  id CHAR(36) PRIMARY KEY,
+  number INT NOT NULL UNIQUE,
+  name VARCHAR(255) NULL,
+  seating_capacity INT NOT NULL,
+  assigned_waiter_id CHAR(36) NULL,
+  status ENUM('FREE', 'OCCUPIED', 'ORDER_IN_PROGRESS') NOT NULL DEFAULT 'FREE',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE shifts (
+  id CHAR(36) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  start_time DATETIME NOT NULL,
+  end_time DATETIME NOT NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE table_assignments (
+  id CHAR(36) PRIMARY KEY,
+  table_id CHAR(36) NOT NULL,
+  waiter_id CHAR(36) NOT NULL,
+  shift_id CHAR(36) NOT NULL,
+  assigned_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_table_shift (table_id, shift_id),
+  CONSTRAINT fk_ta_table FOREIGN KEY (table_id) REFERENCES tables(id),
+  CONSTRAINT fk_ta_waiter FOREIGN KEY (waiter_id) REFERENCES users(id),
+  CONSTRAINT fk_ta_shift FOREIGN KEY (shift_id) REFERENCES shifts(id)
+);
+
+CREATE TABLE menu_categories (
+  id CHAR(36) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE menu_items (
+  id CHAR(36) PRIMARY KEY,
+  category_id CHAR(36) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  description TEXT NULL,
+  price DECIMAL(10,2) NOT NULL,
+  image_url TEXT NULL,
+  is_available TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_mi_category FOREIGN KEY (category_id) REFERENCES menu_categories(id)
+);
+
+CREATE TABLE orders (
+  id CHAR(36) PRIMARY KEY,
+  table_id CHAR(36) NOT NULL,
+  waiter_id CHAR(36) NOT NULL,
+  status ENUM('PENDING', 'IN_PROGRESS', 'READY', 'SERVED', 'CANCELLED') NOT NULL DEFAULT 'PENDING',
+  special_instructions TEXT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  completed_at DATETIME NULL,
+  CONSTRAINT fk_orders_table FOREIGN KEY (table_id) REFERENCES tables(id),
+  CONSTRAINT fk_orders_waiter FOREIGN KEY (waiter_id) REFERENCES users(id)
+);
+
+CREATE TABLE order_items (
+  id CHAR(36) PRIMARY KEY,
+  order_id CHAR(36) NOT NULL,
+  menu_item_id CHAR(36) NOT NULL,
+  quantity INT NOT NULL,
+  price_at_order DECIMAL(10,2) NOT NULL,
+  status ENUM('PENDING', 'COOKING', 'READY', 'CANCELLED') NOT NULL DEFAULT 'PENDING',
+  special_instructions TEXT NULL,
+  CONSTRAINT fk_oi_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+  CONSTRAINT fk_oi_menu_item FOREIGN KEY (menu_item_id) REFERENCES menu_items(id)
+);
+
+CREATE TABLE order_item_events (
+  id CHAR(36) PRIMARY KEY,
+  order_item_id CHAR(36) NOT NULL,
+  event_type ENUM('CREATED', 'COOKING_STARTED', 'READY', 'SERVED', 'CANCELLED') NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_oie_order_item FOREIGN KEY (order_item_id) REFERENCES order_items(id) ON DELETE CASCADE
+);
+
+CREATE TABLE kitchen_alerts (
+  id CHAR(36) PRIMARY KEY,
+  order_id CHAR(36) NOT NULL,
+  sender_id CHAR(36) NOT NULL,
+  message TEXT NOT NULL,
+  type ENUM('ITEM_UNAVAILABLE', 'DELAY', 'OTHER') NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  resolved_at DATETIME NULL,
+  CONSTRAINT fk_ka_order FOREIGN KEY (order_id) REFERENCES orders(id),
+  CONSTRAINT fk_ka_sender FOREIGN KEY (sender_id) REFERENCES users(id)
+);
+
+CREATE TABLE notifications (
+  id CHAR(36) PRIMARY KEY,
+  user_id CHAR(36) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  body TEXT NOT NULL,
+  type VARCHAR(50) NOT NULL,
+  is_read TINYINT(1) NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_notif_user FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
