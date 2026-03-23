@@ -18,8 +18,12 @@ export function requireAuth(roles?: AuthUser["role"][]) {
       return res.status(401).json({ message: "Unauthorized" });
     }
     const token = authHeader.slice("Bearer ".length);
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      return res.status(500).json({ message: "Server misconfigured: JWT_SECRET missing" });
+    }
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || "dev-secret") as {
+      const decoded = jwt.verify(token, jwtSecret) as {
         sub: string;
         role: AuthUser["role"];
         name: string;

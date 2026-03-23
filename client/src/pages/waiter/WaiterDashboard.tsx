@@ -105,8 +105,13 @@ export const WaiterDashboard = () => {
                 const orderTotal = (o.items ?? []).reduce((sum, it) => {
                   return sum + Number(it.price_at_order) * it.quantity;
                 }, 0);
+                const isDelayed =
+                  ["PENDING", "IN_PROGRESS"].includes(o.status) &&
+                  Date.now() - new Date(o.created_at).getTime() > 20 * 60 * 1000;
                 const chip =
-                  o.status === "READY"
+                  isDelayed
+                    ? { label: "delayed", bg: "rgba(239,68,68,0.16)", color: "#ef4444" }
+                    : o.status === "READY"
                     ? { label: "ready", bg: "rgba(34,197,94,0.16)", color: "#22c55e" }
                     : o.status === "PENDING"
                       ? { label: "pending", bg: "rgba(234,179,8,0.15)", color: "#fbbf24" }
@@ -118,7 +123,11 @@ export const WaiterDashboard = () => {
                     p: 1.5,
                     borderRadius: 2,
                     bgcolor: "rgba(255,255,255,0.03)",
-                    border: o.status === "READY" ? "1px solid rgba(34,197,94,0.35)" : "1px solid rgba(255,255,255,0.06)"
+                    border: isDelayed
+                      ? "1px solid rgba(239,68,68,0.35)"
+                      : o.status === "READY"
+                        ? "1px solid rgba(34,197,94,0.35)"
+                        : "1px solid rgba(255,255,255,0.06)"
                   }}
                 >
                   <Box sx={{ display: "flex", alignItems: "start", justifyContent: "space-between" }}>

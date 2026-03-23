@@ -19,7 +19,13 @@ import Chip from "@mui/material/Chip";
 import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import { useQuery } from "@tanstack/react-query";
-import { createTable, deleteTable, fetchTables, updateTable } from "../../api/tables";
+import {
+  assignTableToWaiter,
+  createTable,
+  deleteTable,
+  fetchActiveShift,
+  fetchTables
+} from "../../api/tables";
 import { fetchOrders } from "../../api/orders";
 import { PillTabs } from "../../components/ui/PillTabs";
 import {
@@ -29,18 +35,44 @@ import {
   updateMenuItem
 } from "../../api/menu";
 import { fetchUsers } from "../../api/users";
+import {
+  downloadReportsCsv,
+  fetchPopularItems,
+  fetchSales,
+  fetchSummaryReport,
+  fetchWaiterPerformance,
+  ReportRange
+} from "../../api/reports";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import CloseIcon from "@mui/icons-material/Close";
 
 export const ManagerDashboard = () => {
-  const [tab, setTab] = useState<"overview" | "tables" | "menu" | "staff">("overview");
+  const [tab, setTab] = useState<"overview" | "tables" | "menu" | "staff" | "reports">("overview");
+  const [reportRange, setReportRange] = useState<ReportRange>("day");
 
   const tablesQ = useQuery({ queryKey: ["tables"], queryFn: fetchTables });
+  const shiftQ = useQuery({ queryKey: ["shifts", "active"], queryFn: fetchActiveShift });
   const ordersQ = useQuery({ queryKey: ["orders"], queryFn: fetchOrders });
   const menuQ = useQuery({ queryKey: ["menuItems"], queryFn: fetchMenuItems });
   const usersQ = useQuery({ queryKey: ["users"], queryFn: () => fetchUsers() });
+  const reportsSummaryQ = useQuery({
+    queryKey: ["reports", "summary", reportRange],
+    queryFn: () => fetchSummaryReport(reportRange)
+  });
+  const reportsWaitersQ = useQuery({
+    queryKey: ["reports", "waiters", reportRange],
+    queryFn: () => fetchWaiterPerformance(reportRange)
+  });
+  const reportsPopularQ = useQuery({
+    queryKey: ["reports", "popular", reportRange],
+    queryFn: () => fetchPopularItems(reportRange)
+  });
+  const reportsSalesQ = useQuery({
+    queryKey: ["reports", "sales", reportRange],
+    queryFn: () => fetchSales(reportRange)
+  });
 
   const loading = tablesQ.isLoading || ordersQ.isLoading || menuQ.isLoading || usersQ.isLoading;
   const error = tablesQ.isError || ordersQ.isError || menuQ.isError || usersQ.isError;
@@ -113,7 +145,8 @@ export const ManagerDashboard = () => {
           { value: "overview", label: "Overview" },
           { value: "tables", label: "Tables" },
           { value: "menu", label: "Menu" },
-          { value: "staff", label: "Staff" }
+          { value: "staff", label: "Staff" },
+          { value: "reports", label: "Reports" }
         ]}
       />
 
@@ -230,6 +263,9 @@ export const ManagerDashboard = () => {
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <Typography fontWeight={900}>Table Management</Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+              Active shift: {shiftQ.data?.name || "Not set"}
+            </Typography>
             <Button
               variant="contained"
               startIcon={<AddIcon />}
@@ -318,7 +354,10 @@ export const ManagerDashboard = () => {
                             displayEmpty
                             onChange={async (e) => {
                               const v = String(e.target.value || "");
-                              await updateTable(t.id, { assigned_waiter_id: v ? v : null });
+                              await assignTableToWaiter(t.id, {
+                                waiter_id: v ? v : null,
+                                shift_id: shiftQ.data?.id
+                              });
                               await tablesQ.refetch();
                             }}
                             sx={{
@@ -663,6 +702,121 @@ export const ManagerDashboard = () => {
               );
             })}
           </Grid>
+        </Box>
+      ) : null}
+
+      {tab === "reports" ? (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+            <Typography fontWeight={900}>Reports & Analytics</Typography>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <FormControl size="small" sx={{ minWidth: 120 }}>
+                <InputLabel id="report-range-label">Range</InputLabel>
+                <Select
+                  labelId="report-range-label"
+                  value={reportRange}
+                  label="Range"
+                  onChange={(e) => setReportRange(e.target.value as ReportRange)}
+                >
+                  <MenuItem value="day">Day</MenuItem>
+                  <MenuItem value="week">Week</MenuItem>
+                  <MenuItem value="month">Month</MenuItem>
+                </Select>
+              </FormControl>
+              <Button
+                variant="outlined"
+                onClick={async () => {
+                  const url = await downloadReportsCsv(reportRange);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `reports-${reportRange}.csv`;
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                Export CSV
+              </Button>
+            </Box>
+          </Box>
+
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={3}>
+              <Paper sx={{ p: 2, borderRadius: 2, bgcolor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                <Typography variant="caption" color="text.secondary" fontWeight={800}>Total Orders</Typography>
+                <Typography variant="h5" fontWeight={900}>{Number(reportsSummaryQ.data?.total_orders || 0)}</Typography>
+              </Paper>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <Paper sx={{ p: 2, borderRadius: 2, bgcolor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                <Typography variant="caption" color="text.secondary" fontWeight={800}>Completed</Typography>
+                <Typography variant="h5" fontWeight={900}>{Number(reportsSummaryQ.data?.completed_orders || 0)}</Typography>
+              </Paper>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <Paper sx={{ p: 2, borderRadius: 2, bgcolor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                <Typography variant="caption" color="text.secondary" fontWeight={800}>Cancelled</Typography>
+                <Typography variant="h5" fontWeight={900}>{Number(reportsSummaryQ.data?.cancelled_orders || 0)}</Typography>
+              </Paper>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <Paper sx={{ p: 2, borderRadius: 2, bgcolor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                <Typography variant="caption" color="text.secondary" fontWeight={800}>Revenue</Typography>
+                <Typography variant="h5" fontWeight={900}>${Number(reportsSummaryQ.data?.revenue || 0).toFixed(2)}</Typography>
+              </Paper>
+            </Grid>
+          </Grid>
+
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <Paper sx={{ p: 2, borderRadius: 2, bgcolor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                <Typography fontWeight={900}>Waiter Performance</Typography>
+                <Divider sx={{ borderColor: "rgba(255,255,255,0.06)", my: 1.5 }} />
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                  {(reportsWaitersQ.data ?? []).slice(0, 8).map((w) => (
+                    <Box key={w.waiter_id} sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
+                      <Typography>{w.waiter_name || w.waiter_username || "Waiter"}</Typography>
+                      <Typography fontWeight={800}>
+                        {Number(w.total_orders)} orders · ${Number(w.revenue).toFixed(2)}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </Paper>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Paper sx={{ p: 2, borderRadius: 2, bgcolor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                <Typography fontWeight={900}>Popular Items</Typography>
+                <Divider sx={{ borderColor: "rgba(255,255,255,0.06)", my: 1.5 }} />
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                  {(reportsPopularQ.data ?? []).slice(0, 8).map((p) => (
+                    <Box key={p.menu_item_id} sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
+                      <Typography>{p.item_name || "Item"}</Typography>
+                      <Typography fontWeight={800}>
+                        {Number(p.quantity_sold)} sold · ${Number(p.revenue).toFixed(2)}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </Paper>
+            </Grid>
+          </Grid>
+
+          <Paper sx={{ p: 2, borderRadius: 2, bgcolor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <Typography fontWeight={900}>Sales Trend</Typography>
+            <Divider sx={{ borderColor: "rgba(255,255,255,0.06)", my: 1.5 }} />
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              {(reportsSalesQ.data ?? []).map((s) => (
+                <Box key={s.period} sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
+                  <Typography>{s.period}</Typography>
+                  <Typography fontWeight={800}>
+                    {Number(s.orders_count)} orders · ${Number(s.revenue).toFixed(2)}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          </Paper>
         </Box>
       ) : null}
     </Box>

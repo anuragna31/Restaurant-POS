@@ -22,6 +22,10 @@ authRouter.post("/login", async (req, res) => {
   }
 
   const { username, password } = parse.data;
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret) {
+    return res.status(500).json({ message: "Server misconfigured: JWT_SECRET missing" });
+  }
 
   try {
     const user = await knexInstance("users")
@@ -43,7 +47,7 @@ authRouter.post("/login", async (req, res) => {
         role: user.role,
         name: user.name
       },
-      process.env.JWT_SECRET || "dev-secret",
+      jwtSecret,
       { expiresIn: "8h" }
     );
 

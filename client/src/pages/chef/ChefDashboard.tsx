@@ -8,6 +8,7 @@ import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
 import { useQuery } from "@tanstack/react-query";
 import { http } from "../../api/http";
+import { createKitchenAlert } from "../../api/notifications";
 
 export const ChefDashboard = () => {
   const { data, isLoading, isError, refetch } = useQuery({
@@ -71,13 +72,18 @@ export const ChefDashboard = () => {
 
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 {col.items.map((o: any) => (
+                  (() => {
+                    const isDelayed =
+                      ["PENDING", "IN_PROGRESS"].includes(o.status) &&
+                      Date.now() - new Date(o.created_at).getTime() > 20 * 60 * 1000;
+                    return (
                   <Paper
                     key={o.id}
                     sx={{
                       p: 2,
                       borderRadius: 2,
                       bgcolor: "rgba(255,255,255,0.04)",
-                      border: `1px solid ${col.accent}55`
+                      border: isDelayed ? "1px solid rgba(239,68,68,0.55)" : `1px solid ${col.accent}55`
                     }}
                   >
                     <Typography fontWeight={900}>Table {o.table_number ?? "—"}</Typography>
@@ -90,6 +96,22 @@ export const ChefDashboard = () => {
                           {it.quantity}x {it.menu_item_name}
                         </Typography>
                       ))}
+                    </Box>
+                    <Box sx={{ mt: 1 }}>
+                      <Button
+                        fullWidth
+                        size="small"
+                        variant="outlined"
+                        sx={{ textTransform: "none", borderRadius: 1.5 }}
+                        onClick={async () => {
+                          const message = window.prompt("Issue details for this order:");
+                          if (!message) return;
+                          await createKitchenAlert({ order_id: o.id, type: "OTHER", message });
+                          await refetch();
+                        }}
+                      >
+                        Report Issue
+                      </Button>
                     </Box>
                     {o.status === "PENDING" ? (
                       <Button
@@ -146,6 +168,8 @@ export const ChefDashboard = () => {
                       </Button>
                     ) : null}
                   </Paper>
+                    );
+                  })()
                 ))}
               </Box>
             </Grid>

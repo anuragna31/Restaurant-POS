@@ -24,6 +24,58 @@ services:
     depends_on:
       - postgres
 
+  server:
+    build:
+      context: .
+      dockerfile: ./server/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      JWT_SECRET: ${JWT_SECRET}
+      DB_CLIENT: pg
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-restaurant}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      DB_NAME: ${DB_NAME:-restaurant_db}
+    volumes:
+      - ./.env:/app/.env:ro
+
+  client:
+    build:
+      context: .
+      dockerfile: ./client/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "5173:80"
+
+  db-init:
+    build:
+      context: .
+      dockerfile: ./server/Dockerfile
+    depends_on:
+      - postgres
+    environment:
+      NODE_ENV: production
+      JWT_SECRET: ${JWT_SECRET}
+      DB_CLIENT: pg
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-restaurant}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      DB_NAME: ${DB_NAME:-restaurant_db}
+    volumes:
+      - ./.env:/app/.env:ro
+    command: npm run db:schema:apply
+
 volumes:
   restro_pg_data:
 

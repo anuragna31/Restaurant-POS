@@ -5,7 +5,7 @@ import { ChefDashboard } from "./pages/chef/ChefDashboard";
 import { ManagerDashboard } from "./pages/manager/ManagerDashboard";
 import { LoginPage } from "./pages/auth/LoginPage";
 import { AppShell } from "./components/layout/AppShell";
-import { getStoredUser, isAuthed } from "./auth/authStore";
+import { getStoredUser, isAuthed, Role } from "./auth/authStore";
 import { useEffect } from "react";
 import { getSocket } from "./rt/socket";
 import { useQueryClient } from "@tanstack/react-query";
@@ -44,24 +44,41 @@ const RequireAuth = ({ children }: { children: JSX.Element }) => {
   return children;
 };
 
+const RequireRole = ({ children, role }: { children: JSX.Element; role: Role }) => {
+  if (!isAuthed()) return <Navigate to="/login" replace />;
+  const user = getStoredUser();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== role) return <Navigate to={`/${user.role.toLowerCase()}`} replace />;
+  return children;
+};
+
 function App() {
   const queryClient = useQueryClient();
+  const authed = isAuthed();
 
   useEffect(() => {
+    if (!authed) return;
     const socket = getSocket();
+    socket.auth = { token: localStorage.getItem("token") || "" };
+    if (!socket.connected) socket.connect();
     const invalidate = () => {
       queryClient.invalidateQueries({ queryKey: ["tables"] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: ["orders", "active"] });
       queryClient.invalidateQueries({ queryKey: ["orders", "mine"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
     };
     socket.on("order:created", invalidate);
     socket.on("order:statusUpdated", invalidate);
+    socket.on("kitchen:alert", invalidate);
+    socket.on("notification:created", invalidate);
     return () => {
       socket.off("order:created", invalidate);
       socket.off("order:statusUpdated", invalidate);
+      socket.off("kitchen:alert", invalidate);
+      socket.off("notification:created", invalidate);
     };
-  }, [queryClient]);
+  }, [queryClient, authed]);
 
   return (
     <ThemeProvider theme={darkTheme}>
@@ -82,25 +99,25 @@ function App() {
           <Route
             path="/waiter"
             element={
-              <RequireAuth>
+              <RequireRole role="WAITER">
                 <WaiterDashboard />
-              </RequireAuth>
+              </RequireRole>
             }
           />
           <Route
             path="/chef"
             element={
-              <RequireAuth>
+              <RequireRole role="CHEF">
                 <ChefDashboard />
-              </RequireAuth>
+              </RequireRole>
             }
           />
           <Route
             path="/manager"
             element={
-              <RequireAuth>
+              <RequireRole role="MANAGER">
                 <ManagerDashboard />
-              </RequireAuth>
+              </RequireRole>
             }
           />
         </Routes>

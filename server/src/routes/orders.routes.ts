@@ -52,6 +52,12 @@ ordersRouter.get("/", requireAuth(), async (req: AuthRequest, res) => {
   try {
     const mine = req.query.mine === "1";
     const active = req.query.active === "1";
+    const tableId = typeof req.query.tableId === "string" ? req.query.tableId : undefined;
+    const waiterId = typeof req.query.waiterId === "string" ? req.query.waiterId : undefined;
+    const status = typeof req.query.status === "string" ? req.query.status : undefined;
+    const from = typeof req.query.from === "string" ? req.query.from : undefined;
+    const to = typeof req.query.to === "string" ? req.query.to : undefined;
+    const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
 
     let q = knexInstance("orders as o")
       .leftJoin("tables as t", "o.table_id", "t.id")
@@ -67,6 +73,18 @@ ordersRouter.get("/", requireAuth(), async (req: AuthRequest, res) => {
 
     if (mine) q = q.where("o.waiter_id", req.user!.id);
     if (active) q = q.whereIn("o.status", ["PENDING", "IN_PROGRESS", "READY"]);
+    if (tableId) q = q.where("o.table_id", tableId);
+    if (waiterId) q = q.where("o.waiter_id", waiterId);
+    if (status) q = q.where("o.status", status);
+    if (from) q = q.where("o.created_at", ">=", from);
+    if (to) q = q.where("o.created_at", "<=", to);
+    if (search) {
+      const searchNumber = Number(search);
+      q = q.where((qb) => {
+        if (Number.isFinite(searchNumber)) qb.where("t.number", searchNumber);
+        qb.orWhere("u.name", "like", `%${search}%`).orWhere("u.username", "like", `%${search}%`);
+      });
+    }
 
     const base = await q;
     const hydrated = await hydrateOrders(base as any[]);
